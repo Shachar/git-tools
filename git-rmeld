@@ -1,0 +1,59 @@
+#!/bin/dash -e
+
+PREFIX="`git rev-parse --show-prefix`"
+if [ -z "$PREFIX" ]
+then
+    PREFIX=.
+fi
+
+case "$#" in
+0)
+    BASEREV=HEAD
+    BASEDIR="`mktemp -d --tmpdir rmeld.HEAD.XXXXXX`"
+    TARGETREV="."
+    TARGETDIR="."
+    ;;
+1)
+    BASEREV="$1"
+    BASEDIR="`mktemp -d --tmpdir rmeld.$1.XXXXXX`"
+    TARGETREV="."
+    TARGETDIR="."
+    ;;
+2)
+    BASEREV="$1"
+    BASEDIR="`mktemp -d --tmpdir rmeld.$1.XXXXXX`"
+    TARGETREV="$2"
+    TARGETDIR="`mktemp -d --tmpdir rmeld.$2.XXXXXX`"
+    ;;
+*)
+    echo "Invalid number of arguments" >&2
+    exit 1
+    ;;
+esac
+
+# Extract the base revision
+git-archive "$BASEREV" "$PREFIX" | tar xf - -C "$BASEDIR"
+
+# Extract the target revision
+if [ . != "$TARGETDIR" ]
+then
+    git-archive "$TARGETREV" "$PREFIX" | tar xf - -C "$TARGETDIR"
+    TARGETPATH="$TARGETDIR/$PREFIX"
+else
+    TARGETPATH="."
+fi
+
+RET=0
+if ! meld "$BASEDIR/$PREFIX" "$TARGETPATH"
+then
+    RET=$?
+    echo "Meld failed!!" >&2
+fi
+
+rm -rf "$BASEDIR"
+if [ . != "$TARGETDIR" ]
+then
+    rm -rf "$TARGETDIR"
+fi
+
+exit $RET
